@@ -1,0 +1,57 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno (NUNCA subir credenciales)
+.env
+.env.local
+.env.*.local
+
+# Base de datos y datos locales
+database.sqlite
+database.json
+
+# Backups y logs
+backups/
+logs/
+*.log
+
+# Excel generado
+tickets.xlsx
+
+# Node/npm portable (binarios locales, no subir)
+node.exe
+nodevars.bat
+corepack
+corepack.cmd
+npm
+npm.cmd
+npm.ps1
+npx
+npx.cmd
+npx.ps1
+pm2
+pm2-dev
+pm2-docker
+pm2-runtime
+pm2.cmd
+pm2-dev.cmd
+pm2-docker.cmd
+pm2-runtime.cmd
+pm2.ps1
+pm2-dev.ps1
+pm2-docker.ps1
+pm2-runtime.ps1
+install_tools.bat
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

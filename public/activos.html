@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activos - Ticket Flex</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">Ticket Flex</div>
+    <nav class="nav">
+      <a class="nav-link" href="index.html">Inicio</a>
+      <a class="nav-link active" href="activos.html">Activos</a>
+      <a class="nav-link" href="buscar.html">Buscar</a>
+      <a class="nav-link" href="historial.html">Historial</a>
+    </nav>
+    <div class="actions">
+      <a class="btn btn-primary btn-icon" href="crear.html">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </span>
+        Crear Ticket
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2 class="page-title">Tickets Activos</h2>
+    <p class="page-subtitle">La página se actualizará automáticamente en unos minutos</p>
+
+    <div class="filter-bar">
+      <select id="filtroProyecto">
+        <option value="">Filtrar todos los Proyectos</option>
+      </select>
+    </div>
+
+    <section class="card">
+      <div class="muted-text" id="countActivos">0 Tickets</div>
+      <div class="table-wrap">
+        <table class="table sticky-header">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Titulo</th>
+              <th>Descripción</th>
+              <th>Proyecto</th>
+              <th>Creado Por</th>
+              <th>Hora de Creación</th>
+              <th class="actions-cell"></th>
+            </tr>
+          </thead>
+          <tbody id="tablaActivos"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="paginacionActivos"></div>
+    </section>
+
+    <h2 class="page-title" style="margin-top: 28px;">Tickets En Progreso</h2>
+    <section class="card">
+      <div class="muted-text" id="countProceso">0 Tickets</div>
+      <div class="table-wrap">
+        <table class="table sticky-header">
+          <thead>
+            <tr>
+              <th>Soporte</th>
+              <th>#</th>
+              <th>Descripción</th>
+              <th>Proyecto</th>
+              <th>Hora de Creación</th>
+              <th>Última Actualización</th>
+              <th class="actions-cell"></th>
+            </tr>
+          </thead>
+          <tbody id="tablaProceso"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="paginacionProceso"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const filtroProyecto = document.getElementById("filtroProyecto")
+    let ticketsCache = []
+
+    function getProyectoChip(proyecto) {
+      if (!proyecto) return '<span class="chip gray">N/A</span>'
+      return `<span class="chip">${escapeHtml(proyecto)}</span>`
+    }
+
+    let activosPageSize = 8
+    let activosPage = 1
+    let procesoPageSize = 8
+    let procesoPage = 1
+
+    function renderTablaActivos(list) {
+      const totalPages = Math.max(1, Math.ceil(list.length / activosPageSize))
+      activosPage = Math.min(activosPage, totalPages)
+      const start = (activosPage - 1) * activosPageSize
+      const slice = list.slice(start, start + activosPageSize)
+      const rows = slice.map(t => `
+        <tr>
+          <td>${escapeHtml(t.id || "-")}</td>
+          <td>${escapeHtml(t.titulo || "-")}</td>
+          <td>${escapeHtml(t.contexto || "-")}</td>
+          <td>${getProyectoChip(t.proyecto)}</td>
+          <td>${escapeHtml(t.nombre || "-")}</td>
+          <td>${escapeHtml(formatDateTime(t.fecha))}</td>
+          <td class="actions-cell">
+            <a class="btn btn-ghost btn-details" href="responder.html?id=${encodeURIComponent(t.id)}">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </span>
+              Ver detalles
+            </a>
+          </td>
+        </tr>
+      `).join("")
+      document.getElementById("tablaActivos").innerHTML = rows || '<tr><td colspan="7">Sin tickets</td></tr>'
+      document.getElementById("countActivos").textContent = `${list.length} Tickets`
+      renderPagination("paginacionActivos", list.length, totalPages, activosPage, (page) => {
+        activosPage = page
+        renderTablaActivos(list)
+      })
+    }
+
+    function renderTablaProceso(list) {
+      const totalPages = Math.max(1, Math.ceil(list.length / procesoPageSize))
+      procesoPage = Math.min(procesoPage, totalPages)
+      const start = (procesoPage - 1) * procesoPageSize
+      const slice = list.slice(start, start + procesoPageSize)
+      const rows = slice.map(t => `
+        <tr>
+          <td>${escapeHtml(t.asignado || "-")}</td>
+          <td>${escapeHtml(t.id || "-")}</td>
+          <td>${escapeHtml(t.contexto || "-")}</td>
+          <td>${getProyectoChip(t.proyecto)}</td>
+          <td>${escapeHtml(formatDateTime(t.fecha))}</td>
+          <td>${escapeHtml(formatDateTime(t.actualizado || t.fecha))}</td>
+          <td class="actions-cell">
+            <a class="btn btn-ghost btn-details" href="responder.html?id=${encodeURIComponent(t.id)}">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </span>
+              Ver detalles
+            </a>
+          </td>
+        </tr>
+      `).join("")
+      document.getElementById("tablaProceso").innerHTML = rows || '<tr><td colspan="7">Sin tickets</td></tr>'
+      document.getElementById("countProceso").textContent = `${list.length} Tickets`
+      renderPagination("paginacionProceso", list.length, totalPages, procesoPage, (page) => {
+        procesoPage = page
+        renderTablaProceso(list)
+      })
+    }
+
+    function renderPagination(containerId, totalItems, totalPages, currentPage, onPageChange) {
+      const container = document.getElementById(containerId)
+      if (!container) return
+      const size = containerId === "paginacionActivos" ? activosPageSize : procesoPageSize
+      const sizeOptions = containerId === "paginacionActivos" ? [5, 8, 12, 20] : [5, 8, 12, 20]
+      if (totalItems <= size) {
+        container.innerHTML = `
+          <div class="page-size">
+            <span>Por página</span>
+            <select data-size>
+              ${sizeOptions.map(n => `<option value="${n}" ${size === n ? "selected" : ""}>${n}</option>`).join("")}
+            </select>
+          </div>
+        `
+        const select = container.querySelector("select[data-size]")
+        if (select) {
+          select.addEventListener("change", () => {
+            const next = Number(select.value) || size
+            if (containerId === "paginacionActivos") {
+              activosPageSize = next
+              activosPage = 1
+              renderTablaActivos(ticketsCache.filter(t => t.estado === "abierto" && (!filtroProyecto.value || t.proyecto === filtroProyecto.value)))
+            } else {
+              procesoPageSize = next
+              procesoPage = 1
+              renderTablaProceso(ticketsCache.filter(t => t.estado === "en_proceso" && (!filtroProyecto.value || t.proyecto === filtroProyecto.value)))
+            }
+          })
+        }
+        return
+      }
+      const buttons = []
+      buttons.push(`
+        <div class="page-size">
+          <span>Por página</span>
+          <select data-size>
+            ${sizeOptions.map(n => `<option value="${n}" ${size === n ? "selected" : ""}>${n}</option>`).join("")}
+          </select>
+        </div>
+      `)
+      buttons.push(`<button class="btn btn-ghost" data-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""}>Anterior</button>`)
+      for (let i = 1; i <= totalPages; i += 1) {
+        buttons.push(`<button class="btn btn-ghost ${i === currentPage ? "is-active" : ""}" data-page="${i}">${i}</button>`)
+      }
+      buttons.push(`<button class="btn btn-ghost" data-page="${currentPage + 1}" ${currentPage === totalPages ? "disabled" : ""}>Siguiente</button>`)
+      container.innerHTML = buttons.join("")
+      const select = container.querySelector("select[data-size]")
+      if (select) {
+        select.addEventListener("change", () => {
+          const next = Number(select.value) || size
+          if (containerId === "paginacionActivos") {
+            activosPageSize = next
+            activosPage = 1
+            renderTablaActivos(ticketsCache.filter(t => t.estado === "abierto" && (!filtroProyecto.value || t.proyecto === filtroProyecto.value)))
+          } else {
+            procesoPageSize = next
+            procesoPage = 1
+            renderTablaProceso(ticketsCache.filter(t => t.estado === "en_proceso" && (!filtroProyecto.value || t.proyecto === filtroProyecto.value)))
+          }
+        })
+      }
+      container.querySelectorAll("button[data-page]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const next = Number(btn.getAttribute("data-page"))
+          if (!Number.isFinite(next) || next < 1 || next > totalPages) return
+          onPageChange(next)
+        })
+      })
+    }
+
+    function aplicarFiltro() {
+      const value = filtroProyecto.value
+      const abiertos = ticketsCache.filter(t => t.estado === "abierto")
+      const proceso = ticketsCache.filter(t => t.estado === "en_proceso")
+      const abiertosFiltrados = value ? abiertos.filter(t => t.proyecto === value) : abiertos
+      const procesoFiltrados = value ? proceso.filter(t => t.proyecto === value) : proceso
+      activosPage = 1
+      procesoPage = 1
+      renderTablaActivos(abiertosFiltrados)
+      renderTablaProceso(procesoFiltrados)
+    }
+
+    document.getElementById("tablaActivos").innerHTML =
+      `
+      <tr>
+        <td colspan="7">
+          <div class="skeleton-card skeleton">
+            <div class="skeleton-line" style="width: 35%;"></div>
+            <div class="skeleton-line" style="width: 90%;"></div>
+            <div class="skeleton-line" style="width: 70%;"></div>
+          </div>
+        </td>
+      </tr>
+      `
+    document.getElementById("tablaProceso").innerHTML =
+      `
+      <tr>
+        <td colspan="7">
+          <div class="skeleton-card skeleton">
+            <div class="skeleton-line" style="width: 38%;"></div>
+            <div class="skeleton-line" style="width: 88%;"></div>
+            <div class="skeleton-line" style="width: 62%;"></div>
+          </div>
+        </td>
+      </tr>
+      `
+    fetchTickets()
+      .then(data => {
+        ticketsCache = Array.isArray(data) ? data : []
+        const proyectos = [...new Set(ticketsCache.map(t => t.proyecto).filter(Boolean))]
+        proyectos.forEach(p => {
+          const opt = document.createElement("option")
+          opt.value = p
+          opt.textContent = p
+          filtroProyecto.appendChild(opt)
+        })
+        aplicarFiltro()
+      })
+      .catch(() => {
+        document.getElementById("tablaActivos").innerHTML = '<tr><td colspan="7">No se pudieron cargar los tickets</td></tr>'
+        document.getElementById("tablaProceso").innerHTML = '<tr><td colspan="7">No se pudieron cargar los tickets</td></tr>'
+        document.getElementById("countActivos").textContent = "0 Tickets"
+        document.getElementById("countProceso").textContent = "0 Tickets"
+      })
+
+    filtroProyecto.addEventListener("change", aplicarFiltro)
+  </script>
+</body>
+
+</html>

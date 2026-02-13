@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Historial - Ticket Flex</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">Ticket Flex</div>
+    <nav class="nav">
+      <a class="nav-link" href="index.html">Inicio</a>
+      <a class="nav-link" href="activos.html">Activos</a>
+      <a class="nav-link" href="buscar.html">Buscar</a>
+      <a class="nav-link active" href="historial.html">Historial</a>
+    </nav>
+    <div class="actions">
+      <a class="btn btn-primary btn-icon" href="crear.html">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </span>
+        Crear Ticket
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2 class="page-title">Historial de Tickets</h2>
+
+    <section class="panel">
+      <div class="form-grid compact">
+        <div class="field">
+          <label for="fechaInicio">Fecha Inicial</label>
+          <input id="fechaInicio" type="date">
+        </div>
+        <div class="field">
+          <label for="fechaFinal">Fecha Final</label>
+          <input id="fechaFinal" type="date">
+        </div>
+        <div class="field" style="align-self: end;">
+          <button class="btn btn-primary" onclick="filtrar()">Buscar</button>
+        </div>
+        <div class="field" style="align-self: end;">
+          <button class="btn btn-ghost" onclick="descargar()">Descargar</button>
+        </div>
+      </div>
+      <p class="note-red">NOTA: Para más precisión, selecciona un día más de diferencia entre fechas.</p>
+      <p class="note-red">NOTA 2: Primero se realiza la búsqueda y después se da en descargar.</p>
+    </section>
+
+    <section class="card">
+      <div class="table-wrap">
+        <table class="table sticky-header">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Titulo</th>
+              <th>Descripción</th>
+              <th>Estatus</th>
+              <th>Abierto por</th>
+              <th>Último comentario</th>
+              <th>Proyecto</th>
+              <th>Soporte</th>
+              <th>Hora de creación</th>
+              <th>Última actualización</th>
+              <th>Hora de cierre</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaHistorial"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="historial-pagination"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    let ticketsCache = []
+    let lastFiltered = []
+    let historialPage = 1
+    let historialPageSize = 10
+
+    function parseFecha(value, options = {}) {
+      if (!value) return null
+      const trimmed = String(value).trim()
+      if (!trimmed) return null
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [year, month, day] = trimmed.split("-").map(Number)
+        const date = new Date(year, month - 1, day)
+        if (options.endOfDay) date.setHours(23, 59, 59, 999)
+        return Number.isNaN(date.getTime()) ? null : date
+      }
+
+      if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) {
+        const isoDate = new Date(trimmed)
+        return Number.isNaN(isoDate.getTime()) ? null : isoDate
+      }
+
+      const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap]\.?m\.?)?)?$/i)
+      if (match) {
+        const day = Number(match[1])
+        const month = Number(match[2])
+        const year = Number(match[3])
+        let hours = Number(match[4] || 0)
+        const minutes = Number(match[5] || 0)
+        const seconds = Number(match[6] || 0)
+        const meridian = (match[7] || "").toLowerCase().replace(".", "")
+        if (meridian === "pm" && hours < 12) hours += 12
+        if (meridian === "am" && hours === 12) hours = 0
+        const date = new Date(year, month - 1, day, hours, minutes, seconds)
+        return Number.isNaN(date.getTime()) ? null : date
+      }
+
+      const fallback = new Date(trimmed)
+      return Number.isNaN(fallback.getTime()) ? null : fallback
+    }
+
+    function renderHistorial(list) {
+      const totalPages = Math.max(1, Math.ceil(list.length / historialPageSize))
+      historialPage = Math.min(historialPage, totalPages)
+      const start = (historialPage - 1) * historialPageSize
+      const slice = list.slice(start, start + historialPageSize)
+      const rows = slice.map(t => {
+        const estado = String(t.estado || "").toLowerCase()
+        const statusClass = estado === "cerrado" ? "status-closed" : (estado === "en_proceso" ? "status-progress" : "status-open")
+        return `
+        <tr>
+          <td>${escapeHtml(t.id || "-")}</td>
+          <td>${escapeHtml(t.titulo || "-")}</td>
+          <td>${escapeHtml(t.contexto || "-")}</td>
+          <td><span class="status-pill ${statusClass}">${escapeHtml(t.estado || "-")}</span></td>
+          <td>${escapeHtml(t.nombre || "-")}</td>
+          <td>${escapeHtml(t.comentario || "-")}</td>
+          <td>${escapeHtml(t.proyecto || "-")}</td>
+          <td>${escapeHtml(t.asignado || "-")}</td>
+          <td>${escapeHtml(formatDateTime(t.fecha))}</td>
+          <td>${escapeHtml(formatDateTime(t.actualizado || t.fecha))}</td>
+          <td>${escapeHtml(formatDateTime(t.cierre || t.fecha))}</td>
+          <td>
+            <a class="btn btn-ghost btn-details" href="responder.html?id=${encodeURIComponent(t.id)}">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </span>
+              Ver detalles
+            </a>
+          </td>
+        </tr>
+      `}).join("")
+      document.getElementById("tablaHistorial").innerHTML = rows || '<tr><td colspan="12">Sin tickets</td></tr>'
+      renderHistorialPagination(list.length, totalPages)
+    }
+
+    function renderHistorialPagination(totalItems, totalPages) {
+      const container = document.getElementById("historial-pagination")
+      if (!container) return
+      if (totalItems <= historialPageSize) {
+        container.innerHTML = `
+          <div class="page-size">
+            <span>Por página</span>
+            <select id="historial-page-size">
+              <option value="10" ${historialPageSize === 10 ? "selected" : ""}>10</option>
+              <option value="20" ${historialPageSize === 20 ? "selected" : ""}>20</option>
+              <option value="50" ${historialPageSize === 50 ? "selected" : ""}>50</option>
+            </select>
+          </div>
+        `
+        const select = container.querySelector("#historial-page-size")
+        if (select) {
+          select.addEventListener("change", () => {
+            historialPageSize = Number(select.value) || 10
+            historialPage = 1
+            renderHistorial(lastFiltered)
+          })
+        }
+        return
+      }
+      const buttons = []
+      buttons.push(`
+        <div class="page-size">
+          <span>Por página</span>
+          <select id="historial-page-size">
+            <option value="10" ${historialPageSize === 10 ? "selected" : ""}>10</option>
+            <option value="20" ${historialPageSize === 20 ? "selected" : ""}>20</option>
+            <option value="50" ${historialPageSize === 50 ? "selected" : ""}>50</option>
+          </select>
+        </div>
+      `)
+      buttons.push(`<button class="btn btn-ghost" data-page="${historialPage - 1}" ${historialPage === 1 ? "disabled" : ""}>Anterior</button>`)
+      for (let i = 1; i <= totalPages; i += 1) {
+        buttons.push(`<button class="btn btn-ghost ${i === historialPage ? "is-active" : ""}" data-page="${i}">${i}</button>`)
+      }
+      buttons.push(`<button class="btn btn-ghost" data-page="${historialPage + 1}" ${historialPage === totalPages ? "disabled" : ""}>Siguiente</button>`)
+      container.innerHTML = buttons.join("")
+      const select = container.querySelector("#historial-page-size")
+      if (select) {
+        select.addEventListener("change", () => {
+          historialPageSize = Number(select.value) || 10
+          historialPage = 1
+          renderHistorial(lastFiltered)
+        })
+      }
+      container.querySelectorAll("button[data-page]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const next = Number(btn.getAttribute("data-page"))
+          if (!Number.isFinite(next) || next < 1 || next > totalPages) return
+          historialPage = next
+          renderHistorial(lastFiltered)
+        })
+      })
+    }
+
+    function filtrar() {
+      const inicio = parseFecha(document.getElementById("fechaInicio").value)
+      const fin = parseFecha(document.getElementById("fechaFinal").value, { endOfDay: true })
+      let cerrados = ticketsCache.filter(t => t.estado === "cerrado")
+      if (inicio || fin) {
+        cerrados = cerrados.filter(t => {
+          const fechaBase = t.cierre || t.actualizado || t.fecha
+          const d = parseFecha(fechaBase)
+          if (!d) return false
+          if (inicio && d < inicio) return false
+          if (fin && d > fin) return false
+          return true
+        })
+      }
+      lastFiltered = cerrados
+      historialPage = 1
+      renderHistorial(cerrados)
+    }
+
+    function descargar() {
+      if (!lastFiltered.length) {
+        uiAlert("No hay resultados para descargar.")
+        return
+      }
+
+      const headers = [
+        "id",
+        "titulo",
+        "descripcion",
+        "estatus",
+        "abierto_por",
+        "ultimo_comentario",
+        "proyecto",
+        "soporte",
+        "hora_creacion",
+        "ultima_actualizacion",
+        "hora_cierre"
+      ]
+
+      function toCsvValue(value) {
+        const text = value == null ? "" : String(value)
+        const sanitized = text.replace(/\r?\n/g, " ").replace(/"/g, '""')
+        return `"${sanitized}"`
+      }
+
+      const rows = lastFiltered.map(t => ([
+        t.id,
+        t.titulo,
+        t.contexto,
+        t.estado,
+        t.nombre,
+        t.comentario,
+        t.proyecto,
+        t.asignado,
+        t.fecha,
+        t.actualizado || t.fecha,
+        t.cierre || t.fecha
+      ]).map(toCsvValue).join(","))
+
+      const csvContent = [headers.join(","), ...rows].join("\n")
+      const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      const stamp = new Date().toISOString().slice(0, 10)
+      link.href = url
+      link.download = `historial_tickets_${stamp}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }
+
+    document.getElementById("tablaHistorial").innerHTML =
+      `
+      <tr>
+        <td colspan="12">
+          <div class="skeleton-card skeleton">
+            <div class="skeleton-line" style="width: 30%;"></div>
+            <div class="skeleton-line" style="width: 90%;"></div>
+            <div class="skeleton-line" style="width: 68%;"></div>
+          </div>
+        </td>
+      </tr>
+      `
+    fetchTickets()
+      .then(data => {
+        ticketsCache = Array.isArray(data) ? data : []
+        filtrar()
+      })
+      .catch(() => {
+        document.getElementById("tablaHistorial").innerHTML = '<tr><td colspan="12">No se pudieron cargar los tickets</td></tr>'
+      })
+  </script>
+</body>
+
+</html>

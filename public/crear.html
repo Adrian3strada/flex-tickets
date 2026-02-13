@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crear Ticket - Ticket Flex</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">Ticket Flex</div>
+    <nav class="nav">
+      <a class="nav-link" href="index.html">Inicio</a>
+      <a class="nav-link" href="activos.html">Activos</a>
+      <a class="nav-link" href="buscar.html">Buscar</a>
+      <a class="nav-link" href="historial.html">Historial</a>
+    </nav>
+    <div class="actions">
+      <a class="btn btn-primary" href="crear.html">Crear Ticket</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="crear-ticket" class="panel" style="max-width: 720px; margin: 0 auto;">
+      <h2>Crear Ticket</h2>
+      <p class="panel-subtitle">Portal para empleados: crea un ticket con tu información.</p>
+      <div class="panel-subtitle" id="refresh-info">La página se refrescará en 05:00</div>
+
+      <div class="form-grid">
+        <div class="field span-4">
+          <label for="titulo">Titulo</label>
+          <input id="titulo" maxlength="500" placeholder="Titulo" required>
+        </div>
+        <div class="field span-4">
+          <label for="contexto">Problema</label>
+          <textarea id="contexto" maxlength="500" placeholder="Problema" required></textarea>
+          <div class="field-help">Por favor, sé descriptivo con tu problema. Detalla tu comentario.</div>
+        </div>
+      </div>
+
+      <div class="form-grid compact" style="margin-top: 12px;">
+        <div class="field">
+          <label for="proyecto">Familia</label>
+          <select id="proyecto" required>
+            <option value="">-----------</option>
+            <option value="OPTIMATOR">OPTIMATOR</option>
+            <option value="TECATE">TECATE</option>
+            <option value="MARIPOSA">MARIPOSA</option>
+            <option value="MCKENZIE">MCKENZIE</option>
+            <option value="CURCHILL">CURCHILL</option>
+            <option value="N9K">N9K</option>
+            <option value="SPITFIRE">SPITFIRE</option>
+            <option value="MATILDA">MATILDA</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="fase">Número de Serie</label>
+          <input id="fase" type="text" maxlength="500" placeholder="Número de Serie" required>
+        </div>
+      </div>
+
+      <div class="form-grid compact" style="margin-top: 12px;">
+        <div class="field">
+          <label for="prioridad">Prioridad</label>
+          <select id="prioridad">
+            <option value="">-----------</option>
+            <option value="baja">Baja</option>
+            <option value="media">Media</option>
+            <option value="alta">Alta</option>
+            <option value="critica">Crítica</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-top: 12px;">
+        <div class="field">
+          <label for="nombre">Nombre Completo</label>
+          <input id="nombre" maxlength="500" placeholder="Nombre Completo" required>
+        </div>
+        <div class="field">
+          <label for="empleado">Usuario GDL ó Número de Nómina</label>
+          <input id="empleado" maxlength="500" placeholder="Usuario GDL ó Número de Nómina" required>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px;">
+        <button id="btnCrearTicket" class="btn btn-primary btn-icon" onclick="enviarTicket()">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+          </span>
+          Crear Ticket
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+  <script src="script.js"></script>
+  <script>
+    iniciarRefresco("refresh-info")
+  </script>
+</body>
+
+</html>

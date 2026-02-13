@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login - Ticket Flex</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="login-page">
+  <!-- Fondo naturaleza: cielo, montañas, árboles -->
+  <div class="login-bg" aria-hidden="true">
+    <div class="login-sky"></div>
+    <div class="login-sun"></div>
+    <div class="login-clouds">
+      <div class="cloud c1"></div>
+      <div class="cloud c2"></div>
+      <div class="cloud c3"></div>
+    </div>
+    <div class="login-mountains">
+      <div class="mountain m1"></div>
+      <div class="mountain m2"></div>
+      <div class="mountain m3"></div>
+      <div class="mountain m4"></div>
+    </div>
+    <div class="login-trees">
+      <div class="tree-side left"></div>
+      <div class="tree-side right"></div>
+    </div>
+    <div class="login-birds">
+      <span class="bird b1">‹›</span>
+      <span class="bird b2">‹›</span>
+    </div>
+  </div>
+
+
+  <!-- Contenedor glassmorphism -->
+  <div class="login-glass-wrap">
+    <div class="login-glass">
+      <div class="login-brand-block">
+        <div class="login-app-name">Ticket Flex</div>
+        <p class="login-app-desc">Sistema de gestión de tickets y soporte. Acceso para administradores.</p>
+      </div>
+      <h1>LOGIN</h1>
+
+      <div class="login-fields">
+        <label class="login-field">
+          <input id="user" type="text" placeholder="Usuario" autocomplete="username">
+          <span class="login-field-line"></span>
+          <span class="login-field-icon login-icon-user" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+          </span>
+        </label>
+        <label class="login-field">
+          <input id="pass" type="password" placeholder="Contraseña" autocomplete="current-password">
+          <span class="login-field-line"></span>
+          <span class="login-field-icon login-icon-eye login-toggle-pass" aria-hidden="true"
+            title="Mostrar/ocultar contraseña" onclick="togglePass()">
+            <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24">
+              </path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+          </span>
+        </label>
+      </div>
+
+      <div class="login-forgot">
+        <a href="#" class="login-forgot-link">Forgot Password?</a>
+      </div>
+
+      <div class="login-remember">
+        <label class="login-checkbox-wrap">
+          <input type="checkbox" id="remember" class="login-checkbox">
+          <span class="login-checkbox-box"></span>
+          <span>Remember Me</span>
+        </label>
+      </div>
+
+      <div class="login-actions">
+        <button type="button" class="btn-login-submit" onclick="login()">
+          <span class="btn-login-text">Login</span>
+        </button>
+      </div>
+
+      <p class="login-register">
+        Don't have an Account? <a class="login-back" href="index.html?fromLogin=1">Regresar al sistema</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="theme-inline"></div>
+
+  <script src="app.js"></script>
+  <script>
+    function togglePass() {
+      var el = document.getElementById("pass");
+      var wrap = document.querySelector(".login-toggle-pass");
+      if (el.type === "password") {
+        el.type = "text";
+        if (wrap) wrap.classList.add("show");
+      } else {
+        el.type = "password";
+        if (wrap) wrap.classList.remove("show");
+      }
+    }
+
+    async function login() {
+      const userEl = document.getElementById("user");
+      const passEl = document.getElementById("pass");
+      const user = (userEl.value || "").trim();
+      const pass = (passEl.value || "").trim();
+
+      if (!user || !pass) {
+        await uiAlert("Completa usuario y contraseña.");
+        return;
+      }
+
+      try {
+        const res = await fetchWithTimeout("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user, pass })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(function () { return {}; });
+          await uiAlert(err.error || "Credenciales incorrectas");
+          return;
+        }
+        const data = await res.json().catch(function () { return {}; });
+        if (data && data.token) {
+          sessionStorage.setItem("adminToken", data.token);
+        }
+        showToast("Sesión iniciada.", "success");
+        location = "responder.html";
+      } catch (err) {
+        await uiAlert("No se pudo conectar con el servidor.");
+      }
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admins - Ticket Flex</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Ticket Flex</div>
+    <nav class="nav">
+      <a class="nav-link" href="index.html">Inicio</a>
+      <a class="nav-link" href="activos.html">Activos</a>
+      <a class="nav-link" href="buscar.html">Buscar</a>
+      <a class="nav-link" href="historial.html">Historial</a>
+      <a class="nav-link active" href="admins.html">Admins</a>
+    </nav>
+    <div class="actions"></div>
+  </header>
+
+  <main class="container">
+    <section class="panel" id="admin-dashboard">
+      <h2>Dashboard admin</h2>
+      <p class="panel-subtitle">Estadísticas de tickets (últimos 30 días).</p>
+
+      <section class="stats-grid" id="admin-stats-cards">
+        <div class="panel stat-card">
+          <div class="stat-label">Tiempo promedio de cierre</div>
+          <div class="stat-value" id="stat-avg-close">—</div>
+          <div class="muted-text">Promedio de tickets cerrados</div>
+        </div>
+        <div class="panel stat-card">
+          <div class="stat-label">Mediana de cierre</div>
+          <div class="stat-value" id="stat-median-close">—</div>
+          <div class="muted-text">Tiempo típico de cierre</div>
+        </div>
+        <div class="panel stat-card">
+          <div class="stat-label">Tickets cerrados</div>
+          <div class="stat-value" id="stat-total-closed">—</div>
+          <div class="muted-text">Total en el periodo</div>
+        </div>
+      </section>
+
+      <div class="dashboard-columns">
+        <div class="dashboard-main">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Línea que levanta más tickets</h3>
+                <div class="muted-text">Familia / Proyecto con mayor volumen</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Línea</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody id="stats-lineas"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-side">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Admin que cierra más rápido / lento</h3>
+                <div class="muted-text">Promedio de cierre por admin</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Admin</th>
+                    <th>Promedio cierre</th>
+                    <th>Tickets</th>
+                  </tr>
+                </thead>
+                <tbody id="stats-cierre-admins"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-header">
+              <div>
+                <h3>Quién toma más / menos por día</h3>
+                <div class="muted-text">Promedio diario de tickets tomados</div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Admin</th>
+                    <th>Promedio por día</th>
+                    <th>Total tomados</th>
+                  </tr>
+                </thead>
+                <tbody id="stats-toma-admins"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel admin-panel" style="max-width: 900px; margin: 0 auto;">
+      <h2>Administradores</h2>
+      <p class="panel-subtitle">Gestiona usuarios con acceso admin.</p>
+
+      <div class="form-grid compact">
+        <div class="field">
+          <label for="newUser">Usuario</label>
+          <input id="newUser" placeholder="Usuario">
+        </div>
+        <div class="field">
+          <label for="newPass">Contraseña</label>
+          <input id="newPass" type="password" placeholder="••••••">
+        </div>
+        <div class="field">
+          <label for="newRole">Rol</label>
+          <select id="newRole">
+            <option value="admin">admin</option>
+            <option value="superadmin">superadmin</option>
+          </select>
+        </div>
+        <div class="field" style="align-self: end;">
+          <button class="btn btn-primary btn-icon" onclick="crearAdmin()">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14"></path>
+                <path d="M5 12h14"></path>
+              </svg>
+            </span>
+            Crear
+          </button>
+        </div>
+      </div>
+
+      <div class="divider" style="margin: 16px 0;"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Usuario</th>
+              <th>Rol</th>
+              <th class="actions-cell">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaAdmins"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    let canManage = false
+
+    async function cargarAdmins() {
+      await cargarSesion()
+      try {
+        const res = await fetchWithTimeout("/api/admins");
+        if (!res.ok) {
+          throw new Error("No se pudo cargar admins");
+        }
+        const data = await res.json();
+        renderAdmins(Array.isArray(data) ? data : []);
+      } catch (err) {
+        document.getElementById("tablaAdmins").innerHTML = '<tr><td colspan="4">No se pudo cargar</td></tr>';
+      }
+    }
+
+    function renderAdmins(list) {
+      const rows = list.map(a => `
+        <tr>
+          <td>${escapeHtml(a.id)}</td>
+          <td>${escapeHtml(a.user)}</td>
+          <td>${escapeHtml(a.role)}</td>
+          <td class="actions-cell">
+            ${canManage ? `
+              <button class="btn btn-ghost btn-icon" onclick="resetPass(${a.id})">
+                <span class="icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                    <path d="M3 3v6h6"></path>
+                  </svg>
+                </span>
+                Reset pass
+              </button>
+              <button class="btn btn-danger btn-icon" onclick="borrarAdmin(${a.id})">
+                <span class="icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6v-2h8v2"></path>
+                    <path d="M6 6l1 14h10l1-14"></path>
+                  </svg>
+                </span>
+                Eliminar
+              </button>
+            ` : `<span class="muted-text">Solo superadmin</span>`}
+          </td>
+        </tr>
+      `).join("");
+      document.getElementById("tablaAdmins").innerHTML = rows || '<tr><td colspan="4">Sin admins</td></tr>';
+    }
+
+    async function cargarSesion() {
+      try {
+        const res = await fetchWithTimeout("/api/me")
+        const data = await res.json()
+        if (!data?.logged) {
+          location = "login.html"
+          return
+        }
+        canManage = data?.role === "superadmin"
+        if (!canManage) {
+          location = "responder.html"
+          return
+        }
+        const form = document.querySelector(".form-grid.compact")
+        if (form) {
+          form.style.display = canManage ? "grid" : "none"
+        }
+        await cargarAdminStats()
+      } catch {
+        canManage = false
+      }
+    }
+
+    function formatDuration(ms) {
+      if (!Number.isFinite(ms) || ms <= 0) return "—";
+      const totalSeconds = Math.round(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      if (hours > 0) {
+        return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+      }
+      if (minutes > 0) {
+        return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+      }
+      return `${seconds}s`;
+    }
+
+    function renderAdminStats(data) {
+      const avgEl = document.getElementById("stat-avg-close");
+      const medianEl = document.getElementById("stat-median-close");
+      const totalEl = document.getElementById("stat-total-closed");
+      if (avgEl) avgEl.textContent = formatDuration(data?.globalTiming?.avgCloseMs);
+      if (medianEl) medianEl.textContent = formatDuration(data?.globalTiming?.medianCloseMs);
+      if (totalEl) totalEl.textContent = String(data?.globalTiming?.totalClosed ?? "0");
+
+      const lineasBody = document.getElementById("stats-lineas");
+      if (lineasBody) {
+        const rows = (data?.topLineas || []).map(item => `
+          <tr>
+            <td>${escapeHtml(item.linea)}</td>
+            <td>${escapeHtml(item.total)}</td>
+          </tr>
+        `).join("");
+        lineasBody.innerHTML = rows || '<tr><td colspan="2">Sin datos</td></tr>';
+      }
+
+      const cierreBody = document.getElementById("stats-cierre-admins");
+      if (cierreBody) {
+        const rows = (data?.adminCloseRanking || []).map(item => `
+          <tr>
+            <td>${escapeHtml(item.admin)}</td>
+            <td>${escapeHtml(formatDuration(item.avgMs))}</td>
+            <td>${escapeHtml(item.count)}</td>
+          </tr>
+        `).join("");
+        cierreBody.innerHTML = rows || '<tr><td colspan="3">Sin datos</td></tr>';
+      }
+
+      const tomaBody = document.getElementById("stats-toma-admins");
+      if (tomaBody) {
+        const rows = (data?.takeRanking || []).map(item => `
+          <tr>
+            <td>${escapeHtml(item.admin)}</td>
+            <td>${escapeHtml(item.avgPerDay)}</td>
+            <td>${escapeHtml(item.total)}</td>
+          </tr>
+        `).join("");
+        tomaBody.innerHTML = rows || '<tr><td colspan="3">Sin datos</td></tr>';
+      }
+
+      const subtitle = document.querySelector("#admin-dashboard .panel-subtitle");
+      if (subtitle && data?.windowDays) {
+        subtitle.textContent = `Estadísticas de tickets (últimos ${data.windowDays} días).`;
+      }
+    }
+
+    async function cargarAdminStats() {
+      try {
+        const res = await fetchWithTimeout("/api/admin/stats");
+        if (!res.ok) throw new Error("No se pudo cargar estadísticas");
+        const data = await res.json();
+        renderAdminStats(data);
+      } catch {
+        const lineasBody = document.getElementById("stats-lineas");
+        const cierreBody = document.getElementById("stats-cierre-admins");
+        const tomaBody = document.getElementById("stats-toma-admins");
+        if (lineasBody) lineasBody.innerHTML = '<tr><td colspan="2">No se pudieron cargar estadísticas</td></tr>';
+        if (cierreBody) cierreBody.innerHTML = '<tr><td colspan="3">No se pudieron cargar estadísticas</td></tr>';
+        if (tomaBody) tomaBody.innerHTML = '<tr><td colspan="3">No se pudieron cargar estadísticas</td></tr>';
+      }
+    }
+
+    async function crearAdmin() {
+      const user = document.getElementById("newUser").value.trim();
+      const pass = document.getElementById("newPass").value.trim();
+      const role = document.getElementById("newRole").value.trim() || "admin";
+      if (!user || !pass) {
+        uiAlert("Completa usuario y contraseña.");
+        return;
+      }
+      const res = await fetchWithTimeout("/api/admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user, pass, role })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        uiAlert(err.error || "No se pudo crear");
+        return;
+      }
+      document.getElementById("newUser").value = "";
+      document.getElementById("newPass").value = "";
+      showToast("Admin creado correctamente.", "success");
+      await cargarAdmins();
+    }
+
+    async function resetPass(id) {
+      const pass = await uiPrompt("Nueva contraseña:", { title: "Reset de contraseña", confirmText: "Guardar" });
+      if (!pass || !pass.trim()) return;
+      const res = await fetchWithTimeout(`/api/admins/${id}/password`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pass: pass.trim() })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        uiAlert(err.error || "No se pudo actualizar");
+        return;
+      }
+      showToast("Contraseña actualizada.", "success");
+    }
+
+    async function borrarAdmin(id) {
+      const ok = await uiConfirm("¿Eliminar este admin?", { title: "Confirmar eliminación", confirmText: "Eliminar" });
+      if (!ok) return;
+      const res = await fetchWithTimeout(`/api/admins/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        uiAlert(err.error || "No se pudo eliminar");
+        return;
+      }
+      showToast("Admin eliminado.", "success");
+      await cargarAdmins();
+    }
+
+    document.addEventListener("DOMContentLoaded", cargarAdmins);
+  </script>
+</body>
+</html>

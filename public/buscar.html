@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buscar - Ticket Flex</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">Ticket Flex</div>
+    <nav class="nav">
+      <a class="nav-link" href="index.html">Inicio</a>
+      <a class="nav-link" href="activos.html">Activos</a>
+      <a class="nav-link active" href="buscar.html">Buscar</a>
+      <a class="nav-link" href="historial.html">Historial</a>
+    </nav>
+    <div class="actions">
+      <a class="btn btn-primary btn-icon" href="crear.html">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </span>
+        Crear Ticket
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <h2 class="page-title">Buscar Ticket</h2>
+    <p class="page-subtitle">Consulta detalles por número de ticket.</p>
+
+    <div class="search-layout">
+      <section>
+        <div class="filter-bar">
+          <input id="buscarId" placeholder="Escribe el número de Ticket aquí">
+          <button class="btn btn-primary" onclick="buscarTicket()">Buscar</button>
+        </div>
+
+        <div class="search-card">
+          <div class="search-card-header" id="ticketHeader">Ticket #</div>
+          <div class="search-card-body" id="ticketInfo">
+            <div>Estatus:</div>
+            <div>Abierto por:</div>
+            <div>Hora de creación:</div>
+            <div>Última actualización:</div>
+            <div>Actual soporte:</div>
+            <div>Proyecto:</div>
+            <div>Equipo de producto:</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Descripción</h3>
+        <div class="divider"></div>
+        <div id="ticketDescripcion" class="muted-text">—</div>
+        <h3 style="margin-top: 18px;">Comentarios</h3>
+        <div class="divider"></div>
+        <div id="ticketComentarios" class="muted-text">—</div>
+      </section>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    let ticketsCache = []
+
+    document.getElementById("ticketInfo").innerHTML = `
+      <div class="skeleton-card skeleton">
+        <div class="skeleton-line" style="width: 45%;"></div>
+        <div class="skeleton-line" style="width: 70%;"></div>
+        <div class="skeleton-line" style="width: 62%;"></div>
+      </div>
+    `
+    fetchTickets()
+      .then(data => {
+        ticketsCache = Array.isArray(data) ? data : []
+        document.getElementById("ticketInfo").innerHTML = `
+          <div>Estatus:</div>
+          <div>Abierto por:</div>
+          <div>Hora de creación:</div>
+          <div>Última actualización:</div>
+          <div>Actual soporte:</div>
+          <div>Proyecto:</div>
+          <div>Equipo de producto:</div>
+        `
+      })
+      .catch(() => {
+        ticketsCache = []
+      })
+
+    function buscarTicket() {
+      const input = document.getElementById("buscarId")
+      const query = (input.value || "").trim()
+      if (!query) {
+        uiAlert("Escribe un número de ticket para buscar.")
+        input.focus()
+        return
+      }
+      const ticket = ticketsCache.find(t => String(t.id) === query)
+      if (!ticket) {
+        document.getElementById("ticketHeader").textContent = "Ticket #"
+        document.getElementById("ticketInfo").innerHTML = "<div>No se encontró el ticket.</div>"
+        document.getElementById("ticketDescripcion").textContent = "—"
+        document.getElementById("ticketComentarios").textContent = "—"
+        return
+      }
+      const estado = ticket.estado || "abierto"
+      document.getElementById("ticketHeader").textContent = `Ticket #${ticket.id}`
+      document.getElementById("ticketInfo").innerHTML = `
+        <div>Estatus: ${escapeHtml(estado)}</div>
+        <div>Abierto por: ${escapeHtml(ticket.nombre || "-")}</div>
+        <div>Hora de creación: ${escapeHtml(formatDateTime(ticket.fecha))}</div>
+        <div>Última actualización: ${escapeHtml(formatDateTime(ticket.actualizado || ticket.fecha))}</div>
+        <div>Actual soporte: ${escapeHtml(ticket.asignado || "-")}</div>
+        <div>Proyecto: ${escapeHtml(ticket.proyecto || "-")}</div>
+        <div>Equipo de producto: ${escapeHtml(ticket.testflow || "-")}</div>
+      `
+      document.getElementById("ticketDescripcion").textContent = ticket.contexto || "—"
+      cargarComentarios(ticket.id, ticket.comentario || "—")
+    }
+
+    function renderComentarios(list, fallback) {
+      const target = document.getElementById("ticketComentarios")
+      if (!target) return
+      if (!list.length) {
+        target.textContent = fallback || "—"
+        return
+      }
+      target.innerHTML = list.map(c => {
+        const tipo = c.tipo === "cierre" ? "Cierre" : "Nota"
+        const autor = c.autor ? ` - ${c.autor}` : ""
+        return `<div class="muted-text">[${tipo}] ${escapeHtml(c.comentario)} <span class="muted-text">${escapeHtml(formatDateTime(c.created_at))}${escapeHtml(autor)}</span></div>`
+      }).join("")
+    }
+
+    function cargarComentarios(id, fallback) {
+      if (!id) {
+        renderComentarios([], fallback)
+        return
+      }
+      const sender = (typeof fetchWithTimeout === "function") ? fetchWithTimeout : fetch
+      sender(`/api/tickets/${id}/comments`)
+        .then(res => res.ok ? res.json() : [])
+        .then(list => renderComentarios(Array.isArray(list) ? list : [], fallback))
+        .catch(() => renderComentarios([], fallback))
+    }
+  </script>
+</body>
+
+</html>

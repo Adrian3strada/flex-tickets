@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ticket Flex</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">Ticket Flex</div>
+    <nav class="nav">
+      <a class="nav-link active" href="index.html">Inicio</a>
+      <a class="nav-link" href="activos.html">Activos</a>
+      <a class="nav-link" href="buscar.html">Buscar</a>
+      <a class="nav-link" href="historial.html">Historial</a>
+    </nav>
+    <div class="actions">
+      <a class="btn btn-primary btn-icon" href="crear.html">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </span>
+        Crear Ticket
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel hero">
+      <h2>Bienvenido a Ticket Flex</h2>
+      <p class="panel-subtitle">Portal para empleados para crear tickets de soporte.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-icon" href="crear.html">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+          </span>
+          Crear Ticket
+        </a>
+        <a class="btn btn-ghost" href="activos.html">Ver Activos</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>Tickets recientes</h3>
+      <p class="panel-subtitle">Últimos tickets creados por empleados.</p>
+      <div id="recientes" class="grid"></div>
+    </section>
+
+    <section class="panel">
+      <h3>Tickets cerrados (últimos 7 días)</h3>
+      <p class="panel-subtitle">Cierres más recientes de la última semana.</p>
+      <div class="table-wrap">
+        <table class="table closed-table sticky-header">
+          <thead>
+            <tr>
+              <th class="col-id">#</th>
+              <th class="col-title">Título</th>
+              <th class="col-desc">Descripción</th>
+              <th class="col-owner">Creado por</th>
+              <th class="col-support">Soporte</th>
+              <th class="col-project">Proyecto</th>
+              <th class="col-date">Hora de creación</th>
+              <th class="col-date">Última actualización</th>
+              <th class="col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="cerrados-recientes"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="cerrados-pagination"></div>
+    </section>
+
+    <section class="stats-grid">
+      <div class="panel stat-card">
+        <div class="stat-label">Total de tickets</div>
+        <div class="stat-value" id="stat-total">0</div>
+      </div>
+      <div class="panel stat-card">
+        <div class="stat-label">Activos</div>
+        <div class="stat-value" id="stat-activos">0</div>
+      </div>
+      <div class="panel stat-card">
+        <div class="stat-label">Cerrados</div>
+        <div class="stat-value" id="stat-cerrados">0</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    renderLoading("recientes", "Cargando tickets recientes...")
+    fetchTickets().then(data => {
+      const tickets = Array.isArray(data) ? data : []
+      renderStats(tickets)
+      renderRecentTickets(tickets, 3)
+    })
+
+    let closedPageSize = 5
+    let closedPage = 1
+    let closedCache = []
+
+    function renderClosedTickets(list) {
+      const totalPages = Math.max(1, Math.ceil(list.length / closedPageSize))
+      closedPage = Math.min(closedPage, totalPages)
+      const start = (closedPage - 1) * closedPageSize
+      const slice = list.slice(start, start + closedPageSize)
+      const rows = slice.map(t => {
+        const estado = String(t.estado || "").toLowerCase()
+        const statusClass = estado === "cerrado" ? "status-closed" : (estado === "en_proceso" ? "status-progress" : "status-open")
+        return `
+        <tr>
+          <td class="col-id">${escapeHtml(t.id || "-")}</td>
+          <td class="col-title">${escapeHtml(t.titulo || "-")}</td>
+          <td class="col-desc">${escapeHtml(t.contexto || "-")}</td>
+          <td class="col-owner">${escapeHtml(t.nombre || "-")}</td>
+          <td class="col-support"><span class="status-pill ${statusClass}">${escapeHtml(t.estado || "-")}</span></td>
+          <td class="col-project">${escapeHtml(t.proyecto || "-")}</td>
+          <td class="col-date">${escapeHtml(formatDateTime(t.fecha))}</td>
+          <td class="col-date">${escapeHtml(formatDateTime(t.actualizado || t.cierre || t.fecha))}</td>
+          <td class="col-actions">
+            <a class="btn btn-ghost btn-details" href="responder.html?id=${encodeURIComponent(t.id)}">
+              <span class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </span>
+              Ver detalles
+            </a>
+          </td>
+        </tr>
+      `}).join("")
+      document.getElementById("cerrados-recientes").innerHTML =
+        rows || '<tr><td colspan="9"><span class="muted-text">No hay tickets cerrados en los últimos 7 días.</span> Cierra tickets desde <a href="responder.html">Responder</a> para verlos aquí.</td></tr>'
+      renderClosedPagination(list.length, totalPages)
+    }
+
+    function renderClosedPagination(totalItems, totalPages) {
+      const container = document.getElementById("cerrados-pagination")
+      if (!container) return
+      if (totalItems <= closedPageSize) {
+        container.innerHTML = `
+          <div class="page-size">
+            <span>Por página</span>
+            <select id="cerrados-page-size">
+              <option value="5" ${closedPageSize === 5 ? "selected" : ""}>5</option>
+              <option value="10" ${closedPageSize === 10 ? "selected" : ""}>10</option>
+              <option value="20" ${closedPageSize === 20 ? "selected" : ""}>20</option>
+            </select>
+          </div>
+        `
+        const select = container.querySelector("#cerrados-page-size")
+        if (select) {
+          select.addEventListener("change", () => {
+            closedPageSize = Number(select.value) || 5
+            closedPage = 1
+            renderClosedTickets(closedCache)
+          })
+        }
+        return
+      }
+      const buttons = []
+      buttons.push(`
+        <div class="page-size">
+          <span>Por página</span>
+          <select id="cerrados-page-size">
+            <option value="5" ${closedPageSize === 5 ? "selected" : ""}>5</option>
+            <option value="10" ${closedPageSize === 10 ? "selected" : ""}>10</option>
+            <option value="20" ${closedPageSize === 20 ? "selected" : ""}>20</option>
+          </select>
+        </div>
+      `)
+      buttons.push(`<button class="btn btn-ghost" data-page="${closedPage - 1}" ${closedPage === 1 ? "disabled" : ""}>Anterior</button>`)
+      for (let i = 1; i <= totalPages; i += 1) {
+        buttons.push(`<button class="btn btn-ghost ${i === closedPage ? "is-active" : ""}" data-page="${i}">${i}</button>`)
+      }
+      buttons.push(`<button class="btn btn-ghost" data-page="${closedPage + 1}" ${closedPage === totalPages ? "disabled" : ""}>Siguiente</button>`)
+      container.innerHTML = buttons.join("")
+      const select = container.querySelector("#cerrados-page-size")
+      if (select) {
+        select.addEventListener("change", () => {
+          closedPageSize = Number(select.value) || 5
+          closedPage = 1
+          renderClosedTickets(closedCache)
+        })
+      }
+      container.querySelectorAll("button[data-page]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const next = Number(btn.getAttribute("data-page"))
+          if (!Number.isFinite(next) || next < 1 || next > totalPages) return
+          closedPage = next
+          renderClosedTickets(closedCache)
+        })
+      })
+    }
+
+    document.getElementById("cerrados-recientes").innerHTML =
+      `
+      <tr>
+        <td colspan="9">
+          <div class="skeleton-card skeleton">
+            <div class="skeleton-line" style="width: 35%;"></div>
+            <div class="skeleton-line" style="width: 90%;"></div>
+            <div class="skeleton-line" style="width: 70%;"></div>
+            <div class="skeleton-line" style="width: 50%;"></div>
+          </div>
+        </td>
+      </tr>
+      `
+    fetchClosedTickets(7).then(data => {
+      closedCache = Array.isArray(data) ? data : []
+      renderClosedTickets(closedCache)
+    })
+  </script>
+</body>
+
+</html>

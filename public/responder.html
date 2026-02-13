@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <title>Responder tickets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <header class="topbar">
+    <div class="brand">Ticket Flex</div>
+    <nav class="nav">
+      <a class="nav-link" href="index.html">Inicio</a>
+      <a class="nav-link" href="activos.html">Activos</a>
+      <a class="nav-link" href="buscar.html">Buscar</a>
+      <a class="nav-link" href="historial.html">Historial</a>
+    </nav>
+    <div class="actions"></div>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h2>Tickets recibidos</h2>
+      <p class="panel-subtitle">Panel admin: responder, tomar y cerrar tickets.</p>
+
+      <div class="panel-actions">
+        <div class="muted-text" id="last-updated">Última actualización: —</div>
+        <button class="btn btn-ghost btn-icon" onclick="cargarTickets()">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+              <path d="M3 3v6h6"></path>
+            </svg>
+          </span>
+          Actualizar
+        </button>
+      </div>
+
+      <!-- OBLIGATORIO -->
+      <div id="tickets" class="grid"></div>
+    </section>
+  </main>
+
+  <!-- app.js PRIMERO -->
+  <script src="app.js"></script>
+
+  <!-- responder.js INLINE -->
+  <script>
+    /* =========================
+       SESIÓN
+    ========================= */
+    let session = { logged: false, role: "", user: "" };
+
+    function ensureSession() {
+      if (typeof fetchSession !== "function") {
+        return Promise.resolve(session);
+      }
+      return fetchSession().then(data => {
+        session = data || { logged: false };
+        return session;
+      });
+    }
+
+    /* =========================
+       HELPERS
+    ========================= */
+    function badgeClass(estado) {
+      if (estado === "cerrado") return "badge badge-closed";
+      if (estado === "en_proceso") return "badge badge-progress";
+      return "badge badge-open";
+    }
+
+    function isAdminRole(role) {
+      return role === "admin" || role === "superadmin";
+    }
+
+    /* =========================
+       TARJETA
+    ========================= */
+    function ticketCard(t, i) {
+      const id = t.id ?? i;
+      const safeId = escapeHtml(id);
+
+      const acciones = isAdminRole(session.role) ? `
+    ${t.estado === "abierto" && !t.asignado ? `
+      <button class="btn btn-ghost btn-icon" onclick="tomarTicket('${safeId}')">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"></path>
+            <path d="M12 5l7 7-7 7"></path>
+          </svg>
+        </span>
+        Tomar
+      </button>
+    ` : ""}
+
+    ${t.estado === "en_proceso" ? `
+      <div class="field">
+        <textarea id="comentario_${i}" maxlength="500" placeholder="Agregar comentario"></textarea>
+        <button class="btn btn-ghost btn-icon" onclick="agregarComentario('${safeId}', ${i})">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+            </svg>
+          </span>
+          Agregar comentario
+        </button>
+      </div>
+      <div class="field" style="margin-top: 8px;">
+        <label for="categoria_${i}">Categoría</label>
+        <select id="categoria_${i}">
+          <option value="">-----------</option>
+          <option value="incidencia">Incidencia</option>
+          <option value="mejora">Mejora</option>
+          <option value="soporte">Soporte</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="field" style="margin-top: 8px;">
+        <label for="tipo_cierre_${i}">Tipo</label>
+        <select id="tipo_cierre_${i}">
+          <option value="">-----------</option>
+          <option value="Etiquetas">Etiquetas</option>
+          <option value="Flujos">Flujos</option>
+          <option value="Datasheet">Datasheet</option>
+          <option value="Esquemáticos">Esquemáticos</option>
+        </select>
+      </div>
+      <div class="field" style="margin-top: 8px;">
+        <textarea id="comentario_cierre_${i}" maxlength="500" placeholder="Comentario de cierre"></textarea>
+      </div>
+      <button class="btn btn-primary btn-icon"
+        onclick="cerrarTicket('${safeId}', ${i})">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6L9 17l-5-5"></path>
+          </svg>
+        </span>
+        Cerrar ticket
+      </button>
+    ` : ""}
+  ` : `
+    <div class="muted-text">
+      Solo los administradores pueden responder.
+    </div>
+  `;
+
+      return `
+    <article class="ticket-card">
+      <div class="ticket-header">
+        <div class="ticket-title">Ticket ${safeId}</div>
+        <span class="${badgeClass(t.estado)}">${escapeHtml(t.estado)}</span>
+      </div>
+
+      <div class="ticket-body">
+        <div class="ticket-context"><strong>${escapeHtml(t.titulo || "Sin título")}</strong></div>
+        <div class="ticket-context">${escapeHtml(t.contexto || "Sin descripción")}</div>
+
+        <div class="ticket-meta">
+          <div><strong>Nombre:</strong> ${escapeHtml(t.nombre || "—")}</div>
+          <div><strong>Empleado:</strong> ${escapeHtml(t.empleado || "—")}</div>
+          <div><strong>Familia:</strong> ${escapeHtml(t.proyecto || "—")}</div>
+          <div><strong>N.º de Serie:</strong> ${escapeHtml(t.fase || "—")}</div>
+          <div><strong>Asignado:</strong> ${escapeHtml(t.asignado || "—")}</div>
+          ${t.categoria ? `<div><strong>Categoría:</strong> ${escapeHtml(t.categoria)}</div>` : ""}
+          ${t.estado === "cerrado" && t.tipo_cierre ? `<div><strong>Tipo cierre:</strong> ${escapeHtml(t.tipo_cierre)}</div>` : ""}
+        </div>
+
+        <div class="ticket-context">
+          <strong>Comentarios</strong>
+          <div id="comments_${i}" class="muted-text">Cargando comentarios...</div>
+        </div>
+        ${acciones}
+      </div>
+    </article>
+  `;
+    }
+
+    /* =========================
+       CARGAR TICKETS (GLOBAL)
+    ========================= */
+    async function cargarTickets() {
+      const cont = document.getElementById("tickets");
+      if (!cont) return;
+      cont.innerHTML = `
+        <div class="skeleton-card skeleton">
+          <div class="skeleton-line" style="width: 35%;"></div>
+          <div class="skeleton-line" style="width: 90%;"></div>
+          <div class="skeleton-line" style="width: 65%;"></div>
+          <div class="skeleton-line" style="width: 50%;"></div>
+        </div>
+        <div class="skeleton-card skeleton">
+          <div class="skeleton-line" style="width: 42%;"></div>
+          <div class="skeleton-line" style="width: 88%;"></div>
+          <div class="skeleton-line" style="width: 60%;"></div>
+          <div class="skeleton-line" style="width: 52%;"></div>
+        </div>
+      `;
+
+      if (typeof fetchTickets !== "function") {
+        cont.innerHTML = `<div class="empty">fetchTickets no disponible</div>`;
+        return;
+      }
+
+      await ensureSession();
+
+      const params = new URLSearchParams(location.search);
+      const id = params.get("id");
+
+      fetchTickets().then(list => {
+        let data = Array.isArray(list) ? list : [];
+
+        if (id) {
+          data = data.filter(t => String(t.id) === String(id));
+        }
+
+        cont.innerHTML = data.length
+          ? data.map(ticketCard).join("")
+          : `<div class="empty">Ticket no encontrado</div>`;
+        data.forEach((ticket, index) => {
+          if (ticket?.id != null) {
+            cargarComentarios(ticket.id, index);
+          }
+        });
+      }).catch(() => {
+        cont.innerHTML = `<div class="empty">Error al cargar tickets</div>`;
+      });
+    }
+
+    /* =========================
+       TOMAR / CERRAR (ADMIN)
+    ========================= */
+    function adminHeaders() {
+      return { "Content-Type": "application/json" };
+    }
+
+    function sendRequest(url, options) {
+      if (typeof fetchWithTimeout === "function") {
+        return fetchWithTimeout(url, options);
+      }
+      return fetch(url, options);
+    }
+
+    function tomarTicket(id) {
+      if (!isAdminRole(session.role)) {
+        uiAlert("Solo los administradores pueden tomar tickets.");
+        return;
+      }
+      const asignado = String(session.user || "").trim();
+      if (!asignado) {
+        uiAlert("No se pudo detectar el usuario en sesión.");
+        return;
+      }
+      sendRequest(`/api/tomar/${id}`, {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ asignado })
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "No se pudo tomar el ticket");
+          }
+          return res.json();
+        })
+        .then(() => {
+          showToast("Ticket tomado.", "success");
+          cargarTickets();
+        })
+        .catch(err => uiAlert(err.message || "Error al tomar ticket"));
+    }
+
+    function cerrarTicket(id, index) {
+      if (!isAdminRole(session.role)) {
+        uiAlert("Solo los administradores pueden cerrar tickets.");
+        return;
+      }
+      const comentarioEl = document.getElementById(`comentario_cierre_${index}`);
+      const comentario = comentarioEl ? comentarioEl.value : "";
+      if (comentario.length > 500) {
+        uiAlert("El comentario supera 500 caracteres.");
+        return;
+      }
+      const tipoCierreEl = document.getElementById(`tipo_cierre_${index}`);
+      const tipoCierre = tipoCierreEl ? tipoCierreEl.value : "";
+      const categoriaEl = document.getElementById(`categoria_${index}`);
+      const categoria = categoriaEl ? categoriaEl.value : "";
+      sendRequest(`/api/cerrar/${id}`, {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ comentario: comentario || "", tipo_cierre: tipoCierre || "", categoria: categoria || "" })
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "No se pudo cerrar el ticket");
+          }
+          return res.json();
+        })
+        .then(() => {
+          showToast("Ticket cerrado.", "success");
+          cargarTickets();
+        })
+        .catch(err => uiAlert(err.message || "Error al cerrar ticket"));
+    }
+
+    function renderComentarios(list, index) {
+      const target = document.getElementById(`comments_${index}`);
+      if (!target) return;
+      if (!list.length) {
+        target.textContent = "Sin comentarios.";
+        return;
+      }
+      const rows = list.map(c => {
+        const tipo = c.tipo === "cierre" ? "Cierre" : "Nota";
+        const autor = c.autor ? ` - ${c.autor}` : "";
+        return `<div class="muted-text">[${tipo}] ${escapeHtml(c.comentario)} <span class="muted-text">${escapeHtml(formatDateTime(c.created_at))}${escapeHtml(autor)}</span></div>`;
+      }).join("");
+      target.innerHTML = rows;
+    }
+
+    function cargarComentarios(id, index) {
+      sendRequest(`/api/tickets/${id}/comments`)
+        .then(res => res.ok ? res.json() : [])
+        .then(list => renderComentarios(Array.isArray(list) ? list : [], index))
+        .catch(() => {
+          const target = document.getElementById(`comments_${index}`);
+          if (target) target.textContent = "No se pudieron cargar comentarios.";
+        });
+    }
+
+    function agregarComentario(id, index) {
+      if (!isAdminRole(session.role)) {
+        uiAlert("Solo los administradores pueden comentar.");
+        return;
+      }
+      const comentarioEl = document.getElementById(`comentario_${index}`);
+      const comentario = comentarioEl ? comentarioEl.value.trim() : "";
+      if (!comentario) {
+        uiAlert("Escribe un comentario.");
+        return;
+      }
+      if (comentario.length > 500) {
+        uiAlert("El comentario supera 500 caracteres.");
+        return;
+      }
+      sendRequest(`/api/tickets/${id}/comments`, {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ comentario })
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "No se pudo guardar comentario");
+          }
+          return res.json();
+        })
+        .then(() => {
+          if (comentarioEl) comentarioEl.value = "";
+          showToast("Comentario agregado.", "success");
+          cargarComentarios(id, index);
+        })
+        .catch(err => uiAlert(err.message || "Error al comentar"));
+    }
+
+    /* =========================
+       INIT
+    ========================= */
+    document.addEventListener("DOMContentLoaded", cargarTickets);
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "ticket-system",
+  "version": "1.0.0",
+  "description": "",
+  "main": "excelGenerator.js",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "corepack": "^0.34.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.1",
+    "express-session": "^1.18.1",
+    "nodemailer": "^7.0.12",
+    "npm": "^11.6.2",
+    "sqlite3": "^5.1.7",
+    "xlsx": "^0.18.5"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
