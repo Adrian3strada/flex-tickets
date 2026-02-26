@@ -110,16 +110,6 @@
         </button>
       </div>
       <div class="field" style="margin-top: 8px;">
-        <label for="categoria_${i}">Categoría</label>
-        <select id="categoria_${i}">
-          <option value="">-----------</option>
-          <option value="incidencia">Incidencia</option>
-          <option value="mejora">Mejora</option>
-          <option value="soporte">Soporte</option>
-          <option value="otro">Otro</option>
-        </select>
-      </div>
-      <div class="field" style="margin-top: 8px;">
         <label for="tipo_cierre_${i}">Tipo</label>
         <select id="tipo_cierre_${i}">
           <option value="">-----------</option>
@@ -286,12 +276,10 @@
       }
       const tipoCierreEl = document.getElementById(`tipo_cierre_${index}`);
       const tipoCierre = tipoCierreEl ? tipoCierreEl.value : "";
-      const categoriaEl = document.getElementById(`categoria_${index}`);
-      const categoria = categoriaEl ? categoriaEl.value : "";
       sendRequest(`/api/cerrar/${id}`, {
         method: "POST",
         headers: adminHeaders(),
-        body: JSON.stringify({ comentario: comentario || "", tipo_cierre: tipoCierre || "", categoria: categoria || "" })
+        body: JSON.stringify({ comentario: comentario || "", tipo_cierre: tipoCierre || "" })
       })
         .then(async (res) => {
           if (!res.ok) {
